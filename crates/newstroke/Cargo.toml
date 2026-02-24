@@ -9,4 +9,4 @@ categories = ["graphics"]
 keywords = ["NewStroke", "KiCAD", "vector", "font"]
 
 [dependencies]
-vector-text-core = { path = "../core" }
+vector-text-core = { workspace = true }

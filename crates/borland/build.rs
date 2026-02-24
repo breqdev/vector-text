@@ -185,9 +185,9 @@ fn parse_chrfile(input: &[u8]) -> FontFile {
     eprintln!("Short name: {}", name);
 
     // More info
-    let file_size = cur.read_u16_le();
-    let driver_major_version = cur.read_u8();
-    let driver_minor_version = cur.read_u8();
+    let _file_size = cur.read_u16_le();
+    let _driver_major_version = cur.read_u8();
+    let _driver_minor_version = cur.read_u8();
 
     let header_end = cur.read_u16_le();
     // docs list this as 0x0100 but i think that's an endianness oops
@@ -211,17 +211,17 @@ fn parse_chrfile(input: &[u8]) -> FontFile {
     eprintln!("Starting at character {}", start_char);
 
     // TODO: what does this mean?
-    let stroke_offset = cur.read_u16_le();
+    let _stroke_offset = cur.read_u16_le();
 
-    let scan_flag = cur.read_u8(); // docs say "??" so idk what this is
+    let _scan_flag = cur.read_u8(); // docs say "??" so idk what this is
 
     // Font metric time!
     // Distance from origin to top of capital letter
-    let origin_to_top = cur.read_u8();
+    let _origin_to_top = cur.read_u8();
     // Distance from origin to baseline
-    let origin_to_baseline = cur.read_u8();
+    let _origin_to_baseline = cur.read_u8();
     // Distance from origin to bottom of descender
-    let origin_to_descender = cur.read_u8();
+    let _origin_to_descender = cur.read_u8();
 
     // Short font name (again??)
     // Nope -- null bytes! At least in my file

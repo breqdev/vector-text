@@ -8,7 +8,7 @@ categories = ["graphics"]
 
 
 [dependencies]
-vector-text-core = { path = "../core" }
-vector-text-borland = { path = "../borland" }
-vector-text-hershey = { path = "../hershey" }
-vector-text-newstroke = { path = "../newstroke" }
+vector-text-core = { workspace = true }
+vector-text-borland = { workspace = true }
+vector-text-hershey = { workspace = true }
+vector-text-newstroke = { workspace = true }

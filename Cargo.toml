@@ -7,3 +7,10 @@ members = [
     "crates/vector-text",
 ]
 resolver = "3"
+
+
+[workspace.dependencies]
+vector-text-core = { version = "0.1.0", path = "crates/core" }
+vector-text-borland = { version = "0.1.0", path = "crates/borland" }
+vector-text-hershey = { version = "0.1.0", path = "crates/hershey" }
+vector-text-newstroke = { version = "0.1.0", path = "crates/newstroke" }
