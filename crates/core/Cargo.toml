@@ -1,0 +1,12 @@
+[package]
+name = "vector-text-core"
+version = "0.1.0"
+edition = "2024"
+description = "Shared definitions used for rendering various vector-based font formats."
+repository = "https://github.com/breqdev/vector-text"
+license = "MIT OR Apache-2.0"
+keywords = ["graphics", "vector", "font"]
+categories = ["graphics"]
+
+
+[dependencies]

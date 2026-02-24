@@ -1,0 +1,13 @@
+[package]
+name = "vector-text-borland"
+version = "0.1.0"
+edition = "2024"
+description = "A library for rendering stroke fonts from the Borland Graphics Interface (BGI) framework."
+repository = "https://github.com/breqdev/vector-text"
+license = "MIT"
+keywords = ["borland", "BGI", "vector", "font"]
+categories = ["graphics"]
+
+
+[dependencies]
+vector-text-core = { path = "../core" }

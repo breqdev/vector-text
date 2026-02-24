@@ -1,0 +1,12 @@
+[package]
+name = "vector-text-newstroke"
+version = "0.1.0"
+edition = "2024"
+description = "A library for rendering text in the NewStroke vector font, AKA the KiCAD font."
+repository = "https://github.com/breqdev/vector-text"
+license = "CC0"
+categories = ["graphics"]
+keywords = ["NewStroke", "KiCAD", "vector", "font"]
+
+[dependencies]
+vector-text-core = { path = "../core" }

@@ -1,0 +1,12 @@
+[package]
+name = "vector-text-hershey"
+version = "0.1.0"
+edition = "2024"
+description = "A library for rendering Hershey vector fonts."
+repository = "https://github.com/breqdev/vector-text"
+license-file = "LICENSE"
+categories = ["graphics"]
+keywords = ["hershey", "vector", "font"]
+
+[dependencies]
+vector-text-core = { path = "../core" }

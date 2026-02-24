@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "crates/borland",
+    "crates/core",
+    "crates/hershey",
+    "crates/newstroke",
+    "crates/vector-text",
+]
+resolver = "3"
