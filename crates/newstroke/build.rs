@@ -10,6 +10,7 @@ struct PackedPoint {
 const NUM_GLYPHS: usize = 0x27FF;
 type FontFile = [Option<Glyph>; NUM_GLYPHS];
 
+/// Generate the Rust code defining the glyph table for this font.
 fn generate_rust(font: &[Option<Glyph>]) -> String {
     let mut out = String::new();
 
@@ -53,7 +54,7 @@ struct Glyph {
 }
 
 #[derive(Debug, Clone)]
-pub struct RawGlyph {
+struct Symbol {
     pub name: String,
 
     /// Vector strokes: strokes → points
@@ -79,10 +80,11 @@ fn conv_y(y: i32) -> i8 {
     (-y / SCALE).clamp(-128, 127) as i8
 }
 
-pub fn parse_lib_file(input: &str) -> Result<HashMap<String, RawGlyph>, String> {
+/// Load the .lib file defining NewStroke font symbols.
+fn parse_lib_file(input: &str) -> Result<HashMap<String, Symbol>, String> {
     let mut glyphs = HashMap::new();
 
-    let mut current: Option<RawGlyph> = None;
+    let mut current: Option<Symbol> = None;
 
     for (lineno, line) in input.lines().enumerate() {
         let parts: Vec<&str> = line.split_whitespace().collect();
@@ -101,7 +103,7 @@ pub fn parse_lib_file(input: &str) -> Result<HashMap<String, RawGlyph>, String> 
                     .ok_or_else(|| format!("Malformed DEF at line {}", lineno + 1))?
                     .to_string();
 
-                current = Some(RawGlyph {
+                current = Some(Symbol {
                     name,
                     strokes: Vec::new(),
                     left: 0,
@@ -213,10 +215,14 @@ pub fn parse_lib_file(input: &str) -> Result<HashMap<String, RawGlyph>, String> 
     Ok(glyphs)
 }
 
+/// A transformation that may be applied to a symbol when being composed into a glyph.
 struct Transform {
-    sx: i8,
-    sy: i8,
-    oy: i8,
+    /// X-direction scale
+    scale_x: i8,
+    /// Y-direction scale
+    scale_y: i8,
+    /// Y-direction offset
+    offset_y: i8,
 }
 
 const BASE: i8 = 9;
@@ -226,78 +232,98 @@ const SYM_HEIGHT: i8 = -16;
 const SUP_OFFSET: i8 = -13;
 const SUB_OFFSET: i8 = 6;
 
+/// Split the transform prefix from a symbol name.
+/// For instance, "!PARENTHESIS" becomes "!" and "PARENTHESIS".
 fn split_transform(name: &str) -> (Transform, &str) {
-    let first = name.chars().next().unwrap();
+    let first = name.chars().next();
 
-    match first {
-        '!' => (
-            Transform {
-                sx: -1,
-                sy: 1,
-                oy: 0,
-            },
-            &name[1..],
-        ),
-        '-' => (
-            Transform {
-                sx: 1,
-                sy: -1,
-                oy: X_HEIGHT,
-            },
-            &name[1..],
-        ),
-        '=' => (
-            Transform {
-                sx: 1,
-                sy: -1,
-                oy: CAP_HEIGHT,
-            },
-            &name[1..],
-        ),
-        '~' => (
-            Transform {
-                sx: 1,
-                sy: -1,
-                oy: SYM_HEIGHT,
-            },
-            &name[1..],
-        ),
-        '^' => (
-            Transform {
-                sx: 1,
-                sy: 1,
-                oy: SUP_OFFSET,
-            },
-            &name[1..],
-        ),
-        '.' => (
-            Transform {
-                sx: 1,
-                sy: 1,
-                oy: SUB_OFFSET,
-            },
-            &name[1..],
-        ),
-        _ => (
-            Transform {
-                sx: 1,
-                sy: 1,
-                oy: 0,
-            },
-            name,
-        ),
+    if let Some(c) = first {
+        let transform = match c {
+            '!' => Some(Transform {
+                scale_x: -1,
+                scale_y: 1,
+                offset_y: 0,
+            }),
+            '-' => Some(Transform {
+                scale_x: 1,
+                scale_y: -1,
+                offset_y: X_HEIGHT,
+            }),
+            '=' => Some(Transform {
+                scale_x: 1,
+                scale_y: -1,
+                offset_y: CAP_HEIGHT,
+            }),
+            '~' => Some(Transform {
+                scale_x: 1,
+                scale_y: -1,
+                offset_y: SYM_HEIGHT,
+            }),
+            '+' => Some(Transform {
+                scale_x: -1,
+                scale_y: -1,
+                offset_y: X_HEIGHT,
+            }),
+            '%' => Some(Transform {
+                scale_x: -1,
+                scale_y: -1,
+                offset_y: CAP_HEIGHT,
+            }),
+            '*' => Some(Transform {
+                scale_x: -1,
+                scale_y: -1,
+                offset_y: SYM_HEIGHT,
+            }),
+            '^' => Some(Transform {
+                scale_x: 1,
+                scale_y: 1,
+                offset_y: SUP_OFFSET,
+            }),
+            '`' => Some(Transform {
+                scale_x: -1,
+                scale_y: 1,
+                offset_y: SUP_OFFSET,
+            }),
+            '.' => Some(Transform {
+                scale_x: 1,
+                scale_y: 1,
+                offset_y: SUB_OFFSET,
+            }),
+            ',' => Some(Transform {
+                scale_x: -1,
+                scale_y: 1,
+                offset_y: SUB_OFFSET,
+            }),
+            _ => None,
+        };
+
+        if let Some(t) = transform {
+            // first char is a transform symbol → strip it
+            return (t, &name[c.len_utf8()..]);
+        }
     }
+
+    // first char is not a transform → return identity transform, full string
+    (
+        Transform {
+            scale_x: 1,
+            scale_y: 1,
+            offset_y: 0,
+        },
+        name,
+    )
 }
 
-fn render_glyph(raw: &RawGlyph, tr: &Transform, ofx: i8, ofy: i8) -> Vec<PackedPoint> {
+/// Render the given symbol, with provided transform and offset applied
+fn render_glyph(raw: &Symbol, tr: &Transform, offset_x: i8, offset_y: i8) -> Vec<PackedPoint> {
     let mut out = Vec::new();
 
     for stroke in &raw.strokes {
         let mut first_point = true;
 
         for &(x, y) in stroke {
-            let px = x * tr.sx + ofx;
-            let py = y * tr.sy + ofy + BASE;
+            let px = x * tr.scale_x + offset_x;
+            let py = y * tr.scale_y + offset_y + BASE;
 
             out.push(PackedPoint {
                 x: px,
@@ -312,13 +338,15 @@ fn render_glyph(raw: &RawGlyph, tr: &Transform, ofx: i8, ofy: i8) -> Vec<PackedP
     out
 }
 
-fn transform_metrics(raw: &RawGlyph, tr: &Transform) -> (i8, i8) {
+/// Transform the left and right metrics of the given symbol.
+fn transform_metrics(raw: &Symbol, tr: &Transform) -> (i8, i8) {
     let (l, r) = (raw.left, raw.right);
 
-    if tr.sx >= 0 { (l, r) } else { (-r, -l) }
+    if tr.scale_x >= 0 { (l, r) } else { (-r, -l) }
 }
 
-fn build_single(raw: &HashMap<String, RawGlyph>, name: &str) -> Option<Glyph> {
+/// Build a glyph from a single symbol name.
+fn build_single(raw: &HashMap<String, Symbol>, name: &str) -> Option<Glyph> {
     let (tr, base_name) = split_transform(name);
     if let Some(base) = &raw.get(base_name) {
         let strokes = render_glyph(base, &tr, 0, 0);
@@ -335,49 +363,59 @@ fn build_single(raw: &HashMap<String, RawGlyph>, name: &str) -> Option<Glyph> {
     }
 }
 
+/// Compute the offset used when placing an accent character on a base character.
 fn anchor_offset(
-    base: &RawGlyph,
-    accent: &RawGlyph,
-    anchor: &str,
+    base: &Symbol,
+    accent: &Symbol,
+    anchor: Option<&str>,
     base_tr: &Transform,
     accent_tr: &Transform,
 ) -> (i8, i8) {
-    let (bx, by) = base.anchors.get(anchor).copied().unwrap_or((0, 0));
-    let (ax, ay) = accent.anchors.get(anchor).copied().unwrap_or((0, 0));
+    // No anchor → zero offset
+    let anchor = match anchor {
+        Some(a) => a,
+        None => return (0, 0),
+    };
 
-    let ox = bx * base_tr.sx - ax * accent_tr.sx;
-    let oy = by * base_tr.sy + base_tr.oy - ay * accent_tr.sy - accent_tr.oy;
+    // Split at '=' if present: left = base key, right = accent key (modifier)
+    let mut parts = anchor.splitn(2, '=');
+    let base_key = parts.next().unwrap(); // e.g., "ABOVE"
+    let accent_key = parts.next().unwrap_or(base_key); // e.g., "X" or fallback to base_key
+
+    // Lookup coordinates in glyph anchors
+    let (bx, by) = base.anchors.get(base_key).copied().unwrap();
+    let (ax, ay) = accent.anchors.get(accent_key).copied().unwrap_or((0, 0));
+
+    // Apply transforms
+    let ox = bx * base_tr.scale_x - ax * accent_tr.scale_x;
+    let oy = by * base_tr.scale_y + base_tr.offset_y - ay * accent_tr.scale_y - accent_tr.offset_y;
 
     (ox, oy)
 }
 
-fn compose_two(raw: &HashMap<String, RawGlyph>, a: &str, b: &str) -> Option<Glyph> {
+/// Create a glyph by composing two characters.
+fn compose_two(raw: &HashMap<String, Symbol>, a: &str, b: &str) -> Option<Glyph> {
     let (ta, a_name) = split_transform(a);
-    let (tb, b_name) = split_transform(b);
 
-    let base = match raw.get(a_name) {
-        Some(base) => base,
-        None => {
-            eprintln!(
-                "Failed to find glyph for A name: {} (combining with B name: {})",
-                a_name, b_name
-            );
-            return None;
-        }
-    };
+    // Split B into accent and optional anchor
+    let mut b_parts = b.splitn(2, ' ');
+    let acc_glyph_name = b_parts.next().unwrap();
+    let anchor = b_parts.next(); // e.g. Some("ABOVE=X")
 
-    let acc = match raw.get(b_name) {
-        Some(acc) => acc,
-        None => {
-            eprintln!(
-                "Failed to find glyph for B name: {} (combining with A name: {})",
-                b_name, a_name
-            );
-            return None;
-        }
-    };
+    let (tb, b_name) = split_transform(acc_glyph_name);
 
-    let (ox, oy) = anchor_offset(base, acc, "ABOVE", &ta, &tb);
+    let base = raw.get(a_name).expect(&format!(
+        "Failed to find glyph for A name: {} (combining with B name: {})",
+        a_name, b_name
+    ));
+
+    let acc = raw.get(b_name).expect(&format!(
+        "Failed to find glyph for B name: {} (combining with A name: {})",
+        b_name, a_name
+    ));
+
+    // Pass anchor to anchor_offset
+    let (ox, oy) = anchor_offset(base, acc, anchor, &ta, &tb);
 
     let mut strokes = render_glyph(base, &ta, 0, 0);
     strokes.extend(render_glyph(acc, &tb, ox, oy));
@@ -392,7 +430,8 @@ fn compose_two(raw: &HashMap<String, RawGlyph>, a: &str, b: &str) -> Option<Glyp
     })
 }
 
-fn parse_charlist(input: &str, font: &HashMap<String, RawGlyph>) -> FontFile {
+/// Parse the "charlist.txt" file, containing the mapping from Unicode codepoint to KiCAD symbol.
+fn parse_charlist(input: &str, font: &HashMap<String, Symbol>) -> FontFile {
     let mut out: FontFile = std::array::from_fn(|_| None);
 
     let mut codepoint: usize = 0;
@@ -403,6 +442,9 @@ fn parse_charlist(input: &str, font: &HashMap<String, RawGlyph>) -> FontFile {
         if line.is_empty() || line.starts_with('#') || line.starts_with("//") {
             continue;
         }
+
+        // remove trailing comment if present
+        let line = line.splitn(2, '#').next().unwrap().trim();
 
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.is_empty() {
@@ -431,18 +473,24 @@ fn parse_charlist(input: &str, font: &HashMap<String, RawGlyph>) -> FontFile {
                     continue;
                 }
 
-                let glyph = match parts.len() {
-                    2 => build_single(font, parts[1]),
+                let rest = line[1..].trim_start();
 
-                    3 => compose_two(font, parts[1], parts[2]),
+                // Split on any amount of whitespace
+                let parts: Vec<&str> = rest.split_whitespace().collect();
 
-                    _ => {
-                        eprintln!("unsupported + form at line {}: {}", lineno + 1, line);
-                        None
-                    }
+                let first_glyph = parts.get(0).expect("missing base glyph");
+                let second_glyph = if parts.len() > 1 {
+                    Some(parts[1..].join(" ")) // join everything after the first
+                } else {
+                    None
                 };
 
-                out[codepoint] = glyph;
+                let glyph = match second_glyph {
+                    Some(second) => compose_two(font, first_glyph, &second),
+                    None => build_single(font, first_glyph),
+                };
+
+                out[codepoint] = Some(glyph.expect("failed to create glyph"));
                 codepoint += 1;
             }
 
@@ -475,7 +523,7 @@ fn parse_charlist(input: &str, font: &HashMap<String, RawGlyph>) -> FontFile {
             }
 
             _ => {
-                eprintln!("unsupported command at line {}: {}", lineno + 1, line);
+                panic!("unsupported command at line {}: {}", lineno + 1, line);
             }
         }
     }

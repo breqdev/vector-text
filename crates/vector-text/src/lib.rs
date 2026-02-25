@@ -23,7 +23,8 @@
 
 use alloc::vec::Vec;
 pub use vector_text_borland::BorlandFont;
-use vector_text_core::{Point, Renderer};
+pub use vector_text_core::Point;
+use vector_text_core::Renderer;
 pub use vector_text_hershey::HersheyFont;
 
 extern crate alloc;

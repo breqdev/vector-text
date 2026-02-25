@@ -6,9 +6,10 @@ struct PackedPoint {
     pub y: i8,
     pub pen: bool,
 }
-const NUM_GLYPHS: usize = 2500;
+const NUM_GLYPHS: usize = 4000;
 type FontFile = [Option<Glyph>; NUM_GLYPHS];
 
+/// Generate the symbol definition Rust code that will be included in the crate.
 fn generate_rust(font: &[Option<Glyph>], mappings: &HashMap<String, FontMapping>) -> String {
     let mut out = String::new();
 
@@ -120,6 +121,7 @@ struct Glyph {
 }
 
 impl Glyph {
+    /// Parse a single line of the Hershey format into a glyph.
     fn from_line(line: &str) -> Result<(u16, Self), ()> {
         let mut chars = line.chars();
 
@@ -167,6 +169,7 @@ impl Glyph {
     }
 }
 
+/// Load a file of glyph definitions in Hershey format.
 fn load_file(file: &str) -> FontFile {
     let mut result = [const { None }; NUM_GLYPHS];
     let mut lines = file.lines();
@@ -202,6 +205,7 @@ fn load_file(file: &str) -> FontFile {
 
 pub type FontMapping = [u16; 256];
 
+/// Load a mapping file describing the symbols contained within a font.
 pub fn load_mapping(file: &str) -> Result<FontMapping, ()> {
     let mut result = [0; 256];
     let mut codepoint: usize = 32;

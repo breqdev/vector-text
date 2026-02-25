@@ -1,6 +1,6 @@
 [package]
 name = "vector-text"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "A library for rendering text into a series of points using various vector fonts."
 repository = "https://github.com/breqdev/vector-text"
@@ -14,3 +14,6 @@ vector-text-core = { workspace = true }
 vector-text-borland = { workspace = true }
 vector-text-hershey = { workspace = true }
 vector-text-newstroke = { workspace = true }
+
+[dev-dependencies]
+svg = "0.14"

@@ -14,6 +14,7 @@ struct PackedPoint {
 const NUM_GLYPHS: usize = 256; // ASCII only, sorry
 type FontFile = [Option<Glyph>; NUM_GLYPHS];
 
+/// Generate the output Rust definitions for the font data.
 fn generate_rust(font: &[Option<Glyph>], name: &str) -> String {
     let mut out = String::new();
 
@@ -57,6 +58,7 @@ struct Glyph {
     pub strokes: Vec<PackedPoint>,
 }
 
+/// Represents a position that may be advanced within a buffer.
 struct Cursor<'a> {
     buf: &'a [u8],
     pos: usize,
@@ -68,6 +70,7 @@ struct PackedCoord {
     y: i8,
 }
 
+/// Parse the "7-bit signed integer" format used for X and Y coordinates.
 fn parse_7bit_signed(input: u8) -> i8 {
     let input = input & 0x7F;
 
@@ -84,6 +87,7 @@ impl<'a> Cursor<'a> {
         Self { buf, pos: 0 }
     }
 
+    /// Read enough bytes to fill the provided buffer.
     fn read(&mut self, out: &mut [u8]) {
         let end = self.pos + out.len();
         if end > self.buf.len() {
@@ -93,18 +97,21 @@ impl<'a> Cursor<'a> {
         self.pos = end;
     }
 
+    /// Read a single byte from the input.
     fn read_u8(&mut self) -> u8 {
         let mut result = [0];
         self.read(&mut result);
         result[0]
     }
 
+    /// Read a 16-bit little-endian integer ("word" in the format description).
     fn read_u16_le(&mut self) -> u16 {
         let mut result = [0, 0];
         self.read(&mut result);
         u16::from_le_bytes(result)
     }
 
+    /// Skip past the following number of bytes.
     fn skip(&mut self, n: usize) {
         let end = self.pos + n;
         if end > self.buf.len() {
@@ -113,6 +120,7 @@ impl<'a> Cursor<'a> {
         self.pos = end;
     }
 
+    /// Skip to the provided location in the file.
     fn skip_to(&mut self, n: usize) {
         let end = n;
         if end > self.buf.len() {
@@ -121,6 +129,7 @@ impl<'a> Cursor<'a> {
         self.pos = end;
     }
 
+    /// Read a packed coordinate (two-byte structure containing X, Y, and a 2-bit opcode).
     fn read_coord(&mut self) -> PackedCoord {
         let mut data = [0, 0];
         self.read(&mut data);
@@ -142,9 +151,11 @@ impl<'a> Cursor<'a> {
     }
 }
 
+/// Parse a .CHR format font file.
+///
+/// Based on this specification:
+/// https://www.fileformat.info/format/borland-chr/corion.htm
 fn parse_chrfile(input: &[u8]) -> FontFile {
-    // Loosely based on here! https://www.fileformat.info/format/borland-chr/corion.htm
-
     let mut cur = Cursor::new(input);
 
     // Read file magic
@@ -199,9 +210,7 @@ fn parse_chrfile(input: &[u8]) -> FontFile {
 
     // Parse font details
     let signature = cur.read_u8();
-    // Supposed to be "+" but mine is "K" for some reason???
     assert_eq!(signature, '+' as u8);
-    // assert_eq!(signature, 'K' as u8);
 
     let num_characters = cur.read_u16_le();
     eprintln!("{} characters in file", num_characters);
@@ -223,7 +232,7 @@ fn parse_chrfile(input: &[u8]) -> FontFile {
     // Distance from origin to bottom of descender
     let _origin_to_descender = cur.read_u8();
 
-    // Short font name (again??)
+    // Docs specify that this is the short font name, repeated
     // Nope -- null bytes! At least in my file
     cur.skip(4);
 
@@ -248,7 +257,7 @@ fn parse_chrfile(input: &[u8]) -> FontFile {
         chr_widths.push(width);
     }
 
-    // The rest of the file is character definitions! Yayyy
+    // The rest of the file is character definitions!
 
     let data_section_start = cur.pos;
 
@@ -269,7 +278,6 @@ fn parse_chrfile(input: &[u8]) -> FontFile {
             match coord.opcode {
                 0b00 => {
                     // End of character definition
-
                     break;
                 }
                 0b01 => {
@@ -308,11 +316,11 @@ fn parse_chrfile(input: &[u8]) -> FontFile {
     file
 }
 
+/// Generate an enum and implementation mapping font names to glyph tables.
 fn generate_enum(variants: &[&str]) -> String {
     let mut out = String::new();
 
-    // Generate enum
-
+    // Generate the enum definition
     out.push_str("/// A specific Borland font instance (i.e., `.CHR` file).\n");
     out.push_str("pub enum BorlandFont {\n");
 
@@ -359,6 +367,7 @@ fn generate_enum(variants: &[&str]) -> String {
 }
 
 fn main() {
+    // TODO: "BOLD.CHR" does not parse properly
     let fonts = [
         // "BOLD",
         "EURO", "GOTH", "LCOM", "LITT", "SANS", "SCRI", "SIMP", "TRIP", "TSCR",
