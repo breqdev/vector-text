@@ -31,20 +31,11 @@ pub struct Glyph {
 
 /// Representation of a point with higher range than [PackedPoint].
 /// Used for the output of text rendering.
+#[derive(Default)]
 pub struct Point {
     pub x: i16,
     pub y: i16,
     pub pen: bool,
-}
-
-impl Default for Point {
-    fn default() -> Self {
-        Self {
-            x: 0,
-            y: 0,
-            pen: false,
-        }
-    }
 }
 
 /// Allows rendering text into vector points.

@@ -66,7 +66,7 @@ fn generate_rust(font: &[Option<Glyph>], mappings: &HashMap<String, FontMapping>
     out.push_str("/// A specific Hershey font mapping file which defines a font in terms of symbol ranges (`.hmp` file).\n");
     out.push_str("pub enum HersheyFont {\n");
 
-    for (name, _) in mappings {
+    for name in mappings.keys() {
         let parts: Vec<_> = name.split(".").collect();
 
         let title: String = parts[0]
@@ -88,7 +88,7 @@ fn generate_rust(font: &[Option<Glyph>], mappings: &HashMap<String, FontMapping>
     out.push_str("    fn table(self) -> &'static [u16; 256] {\n");
     out.push_str("        match self {\n");
 
-    for (name, _) in mappings {
+    for name in mappings.keys() {
         let parts: Vec<_> = name.split(".").collect();
 
         let title: String = parts[0]
@@ -206,7 +206,7 @@ fn load_file(file: &str) -> FontFile {
 pub type FontMapping = [u16; 256];
 
 /// Load a mapping file describing the symbols contained within a font.
-pub fn load_mapping(file: &str) -> Result<FontMapping, ()> {
+pub fn load_mapping(file: &str) -> FontMapping {
     let mut result = [0; 256];
     let mut codepoint: usize = 32;
 
@@ -217,27 +217,25 @@ pub fn load_mapping(file: &str) -> Result<FontMapping, ()> {
 
         let mut parts = line.split(" ");
 
-        if let Some(first) = parts.next() {
-            if let Some(last) = parts.next() {
-                if let Ok(first) = first.parse::<usize>() {
-                    if let Ok(mut last) = last.parse::<usize>() {
-                        if last == 0 {
-                            last = first;
-                        }
+        if let Some(first) = parts.next()
+            && let Some(last) = parts.next()
+            && let Ok(first) = first.parse::<usize>()
+            && let Ok(mut last) = last.parse::<usize>()
+        {
+            if last == 0 {
+                last = first;
+            }
 
-                        for idx in first..=last {
-                            if codepoint < 256 {
-                                result[codepoint] = idx as u16;
-                            }
-                            codepoint += 1;
-                        }
-                    }
+            for idx in first..=last {
+                if codepoint < 256 {
+                    result[codepoint] = idx as u16;
                 }
+                codepoint += 1;
             }
         }
     }
 
-    Ok(result)
+    result
 }
 
 fn main() {
@@ -251,7 +249,7 @@ fn main() {
         let file = file.unwrap();
         let contents = fs::read_to_string(file.path()).unwrap();
         let result = load_mapping(&contents);
-        mappings.insert(file.file_name().into_string().unwrap(), result.unwrap());
+        mappings.insert(file.file_name().into_string().unwrap(), result);
     }
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());

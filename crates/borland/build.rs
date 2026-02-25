@@ -162,12 +162,7 @@ fn parse_chrfile(input: &[u8]) -> FontFile {
     let mut magic = [0; 8];
     cur.read(&mut magic);
 
-    assert_eq!(
-        magic,
-        [
-            'P' as u8, 'K' as u8, 0x08, 0x08, 'B' as u8, 'G' as u8, 'I' as u8, ' ' as u8,
-        ]
-    );
+    assert_eq!(magic, [b'P', b'K', 0x08, 0x08, b'B', b'G', b'I', b' ']);
 
     // Read font desc until chr 26
     let mut desc = Vec::new();
@@ -210,7 +205,7 @@ fn parse_chrfile(input: &[u8]) -> FontFile {
 
     // Parse font details
     let signature = cur.read_u8();
-    assert_eq!(signature, '+' as u8);
+    assert_eq!(signature, b'+');
 
     let num_characters = cur.read_u16_le();
     eprintln!("{} characters in file", num_characters);

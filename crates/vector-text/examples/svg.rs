@@ -1,6 +1,6 @@
+use svg::Document;
 use svg::node::element::Path;
 use svg::node::element::path::Data;
-use svg::{Document, node::element::Rectangle};
 
 use vector_text::{BorlandFont, HersheyFont, VectorFont, render_text};
 

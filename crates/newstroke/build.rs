@@ -404,15 +404,19 @@ fn compose_two(raw: &HashMap<String, Symbol>, a: &str, b: &str) -> Option<Glyph>
 
     let (tb, b_name) = split_transform(acc_glyph_name);
 
-    let base = raw.get(a_name).expect(&format!(
-        "Failed to find glyph for A name: {} (combining with B name: {})",
-        a_name, b_name
-    ));
+    let base = raw.get(a_name).unwrap_or_else(|| {
+        panic!(
+            "Failed to find glyph for A name: {} (combining with B name: {})",
+            a_name, b_name
+        )
+    });
 
-    let acc = raw.get(b_name).expect(&format!(
-        "Failed to find glyph for B name: {} (combining with A name: {})",
-        b_name, a_name
-    ));
+    let acc = raw.get(b_name).unwrap_or_else(|| {
+        panic!(
+            "Failed to find glyph for B name: {} (combining with A name: {})",
+            b_name, a_name
+        )
+    });
 
     // Pass anchor to anchor_offset
     let (ox, oy) = anchor_offset(base, acc, anchor, &ta, &tb);
@@ -444,7 +448,7 @@ fn parse_charlist(input: &str, font: &HashMap<String, Symbol>) -> FontFile {
         }
 
         // remove trailing comment if present
-        let line = line.splitn(2, '#').next().unwrap().trim();
+        let line = line.split('#').next().unwrap().trim();
 
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.is_empty() {
@@ -478,7 +482,7 @@ fn parse_charlist(input: &str, font: &HashMap<String, Symbol>) -> FontFile {
                 // Split on any amount of whitespace
                 let parts: Vec<&str> = rest.split_whitespace().collect();
 
-                let first_glyph = parts.get(0).expect("missing base glyph");
+                let first_glyph = parts.first().expect("missing base glyph");
                 let second_glyph = if parts.len() > 1 {
                     Some(parts[1..].join(" ")) // join everything after the first
                 } else {
